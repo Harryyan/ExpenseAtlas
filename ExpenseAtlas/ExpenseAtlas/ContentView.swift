@@ -1,66 +1,73 @@
-//
-//  ContentView.swift
-//  ExpenseAtlas
-//
-//  Created by Harry Yan on 01/01/2026.
-//
-
 import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
-
+    @Environment(\.modelContext) private var context
+    
+    @State private var store = AppStore()   // ✅ @Observable 用 @State 持有
+    
+    @Query(sort: \Folder.createdAt, order: .forward)
+    private var folders: [Folder]
+    
+    @Query(sort: \StatementDoc.importedAt, order: .reverse)
+    private var allDocs: [StatementDoc]
+    
+    @State private var selectedFolderID: UUID?
+    @State private var selectedDocID: UUID?
+    @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
+    
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                    }
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            FolderSidebarView(
+                folders: folders,
+                selection: $selectedFolderID,
+                onCreateFolder: { name in
+                    store.createFolder(name: name, context: context)
+                },
+                onDeleteFolder: { folder in
+                    store.deleteFolder(folder, context: context)
+                    if selectedFolderID == folder.id { selectedFolderID = nil }
                 }
-                .onDelete(perform: deleteItems)
-            }
-#if os(macOS)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-#endif
-            .toolbar {
-#if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
+            )
+            
+        } content: {
+            DocumentListView(
+                folder: selectedFolder,
+                docs: docsInSelectedFolder,
+                selection: $selectedDocID,
+                onImport: { urls in
+                    store.importDocs(urls, into: selectedFolder, context: context)
+                },
+                onDeleteDoc: { doc in
+                    store.deleteDoc(doc, context: context)
+                    if selectedDocID == doc.id { selectedDocID = nil }
                 }
-#endif
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
-            }
+            )
+            .onChange(of: selectedFolderID) { _, _ in selectedDocID = nil }
         } detail: {
-            Text("Select an item")
+            DetailView(
+                doc: selectedDoc,
+                onGenerate: { doc in
+                    store.generateInsights(for: doc, context: context)
+                }
+            )
         }
+        .navigationSplitViewStyle(.balanced)
     }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
+    
+    private var selectedFolder: Folder? {
+        folders.first { $0.id == selectedFolderID }
+    }
+    
+    private var docsInSelectedFolder: [StatementDoc] {
+        guard let folderID = selectedFolderID else {
+            // “未分类”或全部：这里先显示全部；你也可以只显示 folder == nil
+            return allDocs
         }
+        return allDocs.filter { $0.folder?.id == folderID }
     }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
-            }
-        }
+    
+    private var selectedDoc: StatementDoc? {
+        allDocs.first { $0.id == selectedDocID }
     }
-}
-
-#Preview {
-    ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
 }
