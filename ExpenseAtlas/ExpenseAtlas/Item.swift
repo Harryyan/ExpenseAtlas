@@ -18,23 +18,6 @@ final class Item {
 }
 
 @Model
-final class Folder {
-    @Attribute(.unique) var id: UUID
-    var name: String
-    var createdAt: Date
-    
-    // 一个 folder 下有多个 statement 文件
-    @Relationship(deleteRule: .cascade) var docs: [StatementDoc]
-    
-    init(name: String) {
-        self.id = UUID()
-        self.name = name
-        self.createdAt = .now
-        self.docs = []
-    }
-}
-
-@Model
 final class StatementDoc {
     // MARK: - Identity
     @Attribute(.unique)

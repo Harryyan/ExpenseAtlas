@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct FolderSidebarView: View {
-    let folders: [Folder]
+    @State var viewModel: FileSideBarViewModel
     @Binding var selection: UUID?
 
     let onCreateFolder: (String) -> Void
@@ -12,12 +12,12 @@ struct FolderSidebarView: View {
 
     var body: some View {
         List(selection: $selection) {
-            ForEach(folders) { folder in
+            ForEach(viewModel.folders) { folder in
                 Label(folder.name, systemImage: "folder")
                     .tag(folder.id)
                     .contextMenu {
                         Button(role: .destructive) {
-                            onDeleteFolder(folder)
+                            viewModel.deleteFolder()
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
@@ -38,7 +38,7 @@ struct FolderSidebarView: View {
             TextField("Name", text: $folderName)
             Button("Create") {
                 let name = folderName.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !name.isEmpty { onCreateFolder(name) }
+                if !name.isEmpty { viewModel.createFolder(with: name) }
                 folderName = ""
             }
             Button("Cancel", role: .cancel) { }

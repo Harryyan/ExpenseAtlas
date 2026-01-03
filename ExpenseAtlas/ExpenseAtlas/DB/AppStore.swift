@@ -5,7 +5,6 @@ import Observation
 @MainActor
 @Observable
 final class AppStore {
-
     func createFolder(name: String, context: ModelContext) {
         let folder = Folder(name: name)
         context.insert(folder)

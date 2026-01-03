@@ -19,7 +19,7 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             FolderSidebarView(
-                folders: folders,
+                viewModel: FileSideBarViewModel(),
                 selection: $selectedFolderID,
                 onCreateFolder: { name in
                     store.createFolder(name: name, context: context)
