@@ -12,7 +12,9 @@ import SwiftData
 struct ExpenseAtlasApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Folder.self,
+            StatementDoc.self,
+            Transaction.self
         ])
         
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)

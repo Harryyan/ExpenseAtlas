@@ -83,8 +83,6 @@ private extension FileType {
         switch ext.lowercased() {
         case "pdf": self = .pdf
         case "csv": self = .csv
-        case "ofx": self = .ofx
-        case "qif": self = .qif
         default: self = .unknown
         }
     }
