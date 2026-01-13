@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-enum Category: String, Codable, CaseIterable, Identifiable {
+enum CategoryEntity: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     
     case groceries

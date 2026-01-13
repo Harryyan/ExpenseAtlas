@@ -2,19 +2,14 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var context
+    @Environment(\.modelContext)
+    private var context
     
-    @State private var store = AppStore()   // ✅ @Observable 用 @State 持有
+    // Sorting logic will be handled in VM
+    @Query private var folder: [Folder]
+    @Query private var allDocs: [StatementDoc]
     
-    @Query(sort: \Folder.createdAt, order: .forward)
-    private var folders: [Folder]
-    
-    @Query(sort: \StatementDoc.importedAt, order: .reverse)
-    private var allDocs: [StatementDoc]
-    
-    @State private var selectedFolderID: UUID?
-    @State private var selectedDocID: UUID?
-    @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
+    @State private var viewModel: AppContainerViewModel()
     
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {

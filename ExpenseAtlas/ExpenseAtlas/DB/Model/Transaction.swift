@@ -1,40 +1,45 @@
 import Foundation
 import SwiftData
 
+enum Direction: String, Codable, CaseIterable { case debit, credit }
+
+enum Category: String, Codable, CaseIterable, Identifiable {
+    var id: String { rawValue }
+
+    case groceries, dining, transport, shopping, housing, utilities
+    case subscription, healthcare, entertainment, travel
+    case transfer, income, fee, tax, unknown
+
+    var displayName: String { rawValue.capitalized }
+}
+
 @Model
 final class Transaction {
     @Attribute(.unique) var id: UUID
     
     // MARK: - Core Fields
-    
     var date: Date
     var amount: Decimal
     var currency: String             // "NZD", "CNY", "USD"
     var direction: Direction         // debit / credit
     
     // MARK: - Description
-    
     var rawDescription: String
     var merchant: String?            // merchant name
     
     // MARK: - Categorization
-    
-    var category: Category
+    var category: CategoryEntity
     var isUserEdited: Bool           // if edited category manaully
     
     // MARK: - Optional Financial Info
-    
     var balance: Decimal?
     var reference: String?
     
     // MARK: - Metadata
-    
     var createdAt: Date
     var sourceLine: String?
     
     // MARK: - Relationships
-    
-    @Relationship(inverse: \StatementDoc.transactions)
     var document: StatementDoc?
     
     // MARK: - Init
@@ -46,7 +51,7 @@ final class Transaction {
         direction: Direction,
         rawDescription: String,
         merchant: String? = nil,
-        category: Category = .unknown,
+        category: CategoryEntity = .unknown,
         isUserEdited: Bool = false,
         balance: Decimal? = nil,
         reference: String? = nil,
@@ -68,9 +73,4 @@ final class Transaction {
         self.document = document
         self.createdAt = .now
     }
-}
-
-enum Direction: String, Codable, CaseIterable {
-    case debit
-    case credit
 }
