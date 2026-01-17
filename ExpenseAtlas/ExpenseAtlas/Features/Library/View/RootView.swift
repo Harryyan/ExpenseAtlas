@@ -25,7 +25,7 @@ struct RootView: View {
                 sortMode: folderSortMode,
                 onChangeSortMode: { folderSortMode = $0 },
                 onCreateFolder: { name in
-                    //                               vm.createFolder(name: name, existingFolders: folders, context: context)
+                    vm.createFolder(with: name, context: context)
                 },
                 onDeleteFolder: { folder in
                     //                               vm.deleteFolder(folder, context: context)

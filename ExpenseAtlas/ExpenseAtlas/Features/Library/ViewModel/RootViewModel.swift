@@ -17,14 +17,6 @@ final class RootViewModel {
     let folderUseCase: FolderUseCase
     let statementUseCase: StatementUseCase
     
-    //    @ObservationIgnored
-    //    @AppStorage("folderSortMode") private var folderSortModeRaw: String = FolderSortMode.nameAsc.rawValue
-    //
-    //    var folderSortMode: FolderSortMode {
-    //        get { FolderSortMode(rawValue: folderSortModeRaw) ?? .nameAsc }
-    //        set { folderSortModeRaw = newValue.rawValue }
-    //    }
-    
     enum FolderSortMode: String, CaseIterable, Identifiable {
         var id: String { rawValue }
         
@@ -76,4 +68,11 @@ final class RootViewModel {
     }
     
     // MARK: - Actions(TBC)
+    func createFolder(with name: String, context: ModelContext) {
+        do {
+            try folderUseCase.create(name: name, context: context)
+        } catch {
+            print(error)
+        }
+    }
 }

@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 protocol FolderUseCase {
-    func create(name: String, existingOrderMax: Int, context: ModelContext) throws
+    func create(name: String, context: ModelContext) throws
     func delete(_ folder: Folder, context: ModelContext) throws
     func rename(_ folder: Folder, newName: String, context: ModelContext) throws
     func touch(_ folder: Folder, context: ModelContext) throws
@@ -11,7 +11,7 @@ protocol FolderUseCase {
 struct FolderUseCaseImpl: FolderUseCase {
     let repo: FolderRepository
     
-    func create(name: String, existingOrderMax: Int, context: ModelContext) throws {
+    func create(name: String, context: ModelContext) throws {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         try repo.create(name: trimmed, context: context)
