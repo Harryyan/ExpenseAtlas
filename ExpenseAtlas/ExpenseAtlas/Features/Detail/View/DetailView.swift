@@ -1,21 +1,31 @@
 import SwiftUI
+import SwiftData
 
 struct DetailView: View {
+    @Environment(\.modelContext) private var context
+    @Environment(AppEnvironment.self) private var env
+    
     let doc: StatementDoc?
-    let onGenerate: (StatementDoc) -> Void
-
+    @State var vm: DetailViewModel
+    
     var body: some View {
         if let doc {
             VStack(spacing: 0) {
                 header(doc)
                 Divider()
+                
                 TabView {
                     OriginalPreviewView(doc: doc)
                         .tabItem { Label("Original", systemImage: "doc.text") }
-
-                    ExpenseAtlasView(doc: doc)
-                        .tabItem { Label("Atlas", systemImage: "chart.pie") }
+                    
+                    //                    AtlasEntryView(doc: doc)
+                    //                        .tabItem { Label("Atlas", systemImage: "chart.pie") }
                 }
+            }
+            .alert("Error", isPresented: $vm.showError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(vm.errorMessage ?? "Unknown error")
             }
         } else {
             ContentUnavailableView(
@@ -25,13 +35,25 @@ struct DetailView: View {
             )
         }
     }
-
+    
     private func header(_ doc: StatementDoc) -> some View {
         HStack {
-            Text(doc.title).font(.headline)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(doc.title).font(.headline)
+                if doc.status == .processing {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("Analyzing…").foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text(doc.subtitle).foregroundStyle(.secondary)
+                }
+            }
+            
             Spacer()
+            
             Button {
-                onGenerate(doc)
+                Task { await vm.generate(doc: doc, context: context) }
             } label: {
                 Label("Generate", systemImage: "sparkles")
             }
@@ -42,7 +64,6 @@ struct DetailView: View {
     }
 }
 
-// 先给占位视图，后续你可以换成 PDFKit / 表格预览
 struct OriginalPreviewView: View {
     let doc: StatementDoc
     var body: some View {
@@ -54,28 +75,3 @@ struct OriginalPreviewView: View {
         }
     }
 }
-
-struct ExpenseAtlasView: View {
-    let doc: StatementDoc
-    var body: some View {
-        List {
-            Section("Summary") {
-                Text("Transactions: \(doc.transactions.count)")
-                if let t = doc.lastAnalyzedAt {
-                    Text("Last analyzed: \(t.formatted())")
-                }
-            }
-            Section("Sample Transactions") {
-                ForEach(doc.transactions) { tx in
-                    VStack(alignment: .leading) {
-                        Text(tx.rawDescription)
-                        Text(verbatim: "\(tx.direction.rawValue) \(tx.amount) \(tx.currency) • \(tx.category.displayName)")
-                            .foregroundStyle(.secondary)
-                            .font(.subheadline)
-                    }
-                }
-            }
-        }
-    }
-}
-
