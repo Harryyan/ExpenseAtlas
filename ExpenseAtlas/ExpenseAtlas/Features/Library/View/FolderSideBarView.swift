@@ -1,8 +1,11 @@
 import SwiftUI
 
 struct FolderSidebarView: View {
-    @State var viewModel: FileSideBarViewModel
+    let folders: [Folder]
     @Binding var selection: UUID?
+
+    let sortMode: RootViewModel.FolderSortMode
+    let onChangeSortMode: (RootViewModel.FolderSortMode) -> Void
 
     let onCreateFolder: (String) -> Void
     let onDeleteFolder: (Folder) -> Void
@@ -12,12 +15,12 @@ struct FolderSidebarView: View {
 
     var body: some View {
         List(selection: $selection) {
-            ForEach(viewModel.folders) { folder in
+            ForEach(folders) { folder in
                 Label(folder.name, systemImage: "folder")
                     .tag(folder.id)
                     .contextMenu {
                         Button(role: .destructive) {
-                            viewModel.deleteFolder()
+                            onDeleteFolder(folder)
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
@@ -27,9 +30,23 @@ struct FolderSidebarView: View {
         .navigationTitle("Folders")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showNewFolder = true
+                Menu {
+                    Picker("Sort", selection: Binding(
+                        get: { sortMode },
+                        set: { onChangeSortMode($0) }
+                    )) {
+                        ForEach(RootViewModel.FolderSortMode.allCases) { mode in
+                            Label(mode.title, systemImage: mode.systemImage)
+                                .tag(mode)
+                        }
+                    }
                 } label: {
+                    Image(systemName: "arrow.up.arrow.down")
+                }
+            }
+
+            ToolbarItem(placement: .primaryAction) {
+                Button { showNewFolder = true } label: {
                     Image(systemName: "folder.badge.plus")
                 }
             }
@@ -38,7 +55,8 @@ struct FolderSidebarView: View {
             TextField("Name", text: $folderName)
             Button("Create") {
                 let name = folderName.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !name.isEmpty { viewModel.createFolder(with: name) }
+                guard !name.isEmpty else { return }
+                onCreateFolder(name)
                 folderName = ""
             }
             Button("Cancel", role: .cancel) { }

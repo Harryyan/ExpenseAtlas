@@ -7,9 +7,9 @@ final class LibraryFeatureFactory {
     
     @MainActor
     func makeRootViewModel() -> RootViewModel {
-        return RootViewModel(folderUseCase: FolderUseCaseImpl(repo: FolderRepositoryImpl()),
-                             statementUseCase: StatementUseCaseImpl(statementRepo:  StatementRepositoryImpl(),
-                                                                    folderRepo: FolderRepositoryImpl(),
-                                                                    processor: DemoStatementProcessor()))
+        RootViewModel(folderUseCase: FolderUseCaseImpl(repo: FolderRepositoryImpl()),
+                      statementUseCase: StatementUseCaseImpl(statementRepo:  StatementRepositoryImpl(),
+                                                             folderRepo: FolderRepositoryImpl(),
+                                                             processor: core.statementProcessor))
     }
 }

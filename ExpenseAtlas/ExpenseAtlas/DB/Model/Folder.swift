@@ -11,7 +11,7 @@ final class Folder {
     
     var name: String
     var createdAt: Date
-    var updateAt: Date
+    var updatedAt: Date
     
     init(name: String) {
         id = UUID()
@@ -19,7 +19,7 @@ final class Folder {
         
         let now = Date()
         createdAt = now
-        updateAt = now
+        updatedAt = now
         
         docs = []
     }
