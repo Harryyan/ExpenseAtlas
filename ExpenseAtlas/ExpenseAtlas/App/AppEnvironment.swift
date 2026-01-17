@@ -9,6 +9,7 @@ struct AppEnvironment {
 
     static func live() -> AppEnvironment {
         let core = AppCore.live()
+        
         return AppEnvironment(
             core: core,
             library: LibraryFeatureFactory(core: core),

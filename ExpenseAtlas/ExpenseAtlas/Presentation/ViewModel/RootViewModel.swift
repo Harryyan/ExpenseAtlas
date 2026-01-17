@@ -14,4 +14,11 @@ final class RootViewModel {
     var showError: Bool = false
     var errorMsg: String?
     
+    let folderUseCase: FolderUseCase
+    let statementUseCase: StatementUseCase
+    
+    init(folderUseCase: FolderUseCase, statementUseCase: StatementUseCase) {
+        self.folderUseCase = folderUseCase
+        self.statementUseCase = statementUseCase
+    }
 }

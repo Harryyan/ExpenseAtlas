@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 protocol StatementProcessing {
     func generateTransactions(for doc: StatementDoc) async throws -> [Transaction]
