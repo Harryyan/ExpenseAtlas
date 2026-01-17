@@ -17,21 +17,27 @@ final class RootViewModel {
     let folderUseCase: FolderUseCase
     let statementUseCase: StatementUseCase
     
-    @AppStorage("folderSortMode") var folderSortMode: FolderSortMode = .nameAsc
+    //    @ObservationIgnored
+    //    @AppStorage("folderSortMode") private var folderSortModeRaw: String = FolderSortMode.nameAsc.rawValue
+    //
+    //    var folderSortMode: FolderSortMode {
+    //        get { FolderSortMode(rawValue: folderSortModeRaw) ?? .nameAsc }
+    //        set { folderSortModeRaw = newValue.rawValue }
+    //    }
     
     enum FolderSortMode: String, CaseIterable, Identifiable {
         var id: String { rawValue }
         
         case nameAsc
         case updatedDesc
-
+        
         var title: String {
             switch self {
             case .nameAsc: return "Name (A–Z)"
             case .updatedDesc: return "Recently Updated"
             }
         }
-
+        
         var systemImage: String {
             switch self {
             case .nameAsc: return "textformat"
@@ -39,19 +45,19 @@ final class RootViewModel {
             }
         }
     }
-
+    
     init(folderUseCase: FolderUseCase, statementUseCase: StatementUseCase) {
         self.folderUseCase = folderUseCase
         self.statementUseCase = statementUseCase
     }
     
     // MARK: - Read helpers
-    func sortedFolders(_ folders: [Folder]) -> [Folder] {
-        switch folderSortMode {
+    func sortedFolders(_ folders: [Folder], mode: FolderSortMode) -> [Folder] {
+        switch mode {
         case .nameAsc:
-             folders.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            folders.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         case .updatedDesc:
-             folders.sorted { $0.updatedAt > $1.updatedAt }
+            folders.sorted { $0.updatedAt > $1.updatedAt }
         }
     }
     

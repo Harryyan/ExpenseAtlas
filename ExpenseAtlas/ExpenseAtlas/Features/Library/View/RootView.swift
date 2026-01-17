@@ -5,23 +5,25 @@ struct RootView: View {
     @Environment(\.modelContext) private var context
     @Environment(AppEnvironment.self) private var env
     
-    @State private var vm: RootViewModel
+    @AppStorage("folderSortMode") private var folderSortMode = RootViewModel.FolderSortMode.nameAsc
+    
+    @State var vm: RootViewModel
     
     @Query private var folders: [Folder]
     @Query private var allDocs: [StatementDoc]
     
     var body: some View {
-        let displayFolders = vm.sortedFolders(folders)
+        let displayFolders = vm.sortedFolders(folders, mode: folderSortMode)
         let selectedFolder = vm.selectedFolder(from: folders)
         let docs = vm.docs(with: vm.selectedFolderID, allDocs: allDocs)
-        let selectedDoc = vm.selectedDoc(from: allDocs)
+        //        let selectedDoc = vm.selectedDoc(from: allDocs)
         
         NavigationSplitView(columnVisibility: $vm.columnVisibility, preferredCompactColumn: .constant(.content)) {
             FolderSidebarView(
                 folders: displayFolders,
                 selection: $vm.selectedFolderID,
-                sortMode: vm.folderSortMode,
-                onChangeSortMode: { vm.folderSortMode = $0 },
+                sortMode: folderSortMode,
+                onChangeSortMode: { folderSortMode = $0 },
                 onCreateFolder: { name in
                     //                               vm.createFolder(name: name, existingFolders: folders, context: context)
                 },
@@ -45,9 +47,7 @@ struct RootView: View {
                 vm.selectedDocID = nil
             }
         } detail: {
-            DetailView(doc: nil) { doc in
-                
-            }
+            DetailView(doc: nil, vm: env.detail.makeDetailViewModel())
         }
         .navigationSplitViewStyle(.balanced)
         .alert("Error", isPresented: $vm.showError) {

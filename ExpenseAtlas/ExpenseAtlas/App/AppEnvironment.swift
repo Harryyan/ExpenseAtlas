@@ -22,7 +22,7 @@ final class AppEnvironment {
         
         return AppEnvironment(
             core: core,
-            library: LibraryFeatureFactory(core: core)
+            library: LibraryFeatureFactory(core: core),
             detail: DetailFeatureFactory(core: core),
             atlas: AtlasFeatureFactory(core: core)
         )

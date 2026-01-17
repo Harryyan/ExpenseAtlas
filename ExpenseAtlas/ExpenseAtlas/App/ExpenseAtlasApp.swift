@@ -23,9 +23,9 @@ struct ExpenseAtlasApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView(vm: environment.library.makeRootViewModel())
+                .environment(environment)
         }
         .modelContainer(sharedModelContainer)
-        .environment(environment)
     }
 }
