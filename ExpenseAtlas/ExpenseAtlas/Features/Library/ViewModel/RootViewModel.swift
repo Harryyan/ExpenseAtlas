@@ -75,4 +75,13 @@ final class RootViewModel {
             print(error)
         }
     }
+
+    func importDocs(_ urls: [URL], into folder: Folder?, context: ModelContext) {
+        do {
+            try statementUseCase.importDocs(urls: urls, folder: folder, context: context)
+        } catch {
+            errorMsg = error.localizedDescription
+            showError = true
+        }
+    }
 }

@@ -16,7 +16,7 @@ struct RootView: View {
         let displayFolders = vm.sortedFolders(folders, mode: folderSortMode)
         let selectedFolder = vm.selectedFolder(from: folders)
         let docs = vm.docs(with: vm.selectedFolderID, allDocs: allDocs)
-        //        let selectedDoc = vm.selectedDoc(from: allDocs)
+        let selectedDoc = vm.selectedDoc(from: allDocs)
         
         NavigationSplitView(columnVisibility: $vm.columnVisibility, preferredCompactColumn: .constant(.content)) {
             FolderSidebarView(
@@ -37,7 +37,7 @@ struct RootView: View {
                 docs: docs,
                 selection: $vm.selectedDocID,
                 onImport: { urls in
-                    //                                vm.importDocs(urls, into: selectedFolder, context: context)
+                    vm.importDocs(urls, into: selectedFolder, context: context)
                 },
                 onDeleteDoc: { doc in
                     //                                vm.deleteDoc(doc, context: context)
@@ -47,7 +47,7 @@ struct RootView: View {
                 vm.selectedDocID = nil
             }
         } detail: {
-            DetailView(doc: nil, vm: env.detail.makeDetailViewModel())
+            DetailView(doc: selectedDoc, vm: env.detail.makeDetailViewModel())
         }
         .navigationSplitViewStyle(.balanced)
         .alert("Error", isPresented: $vm.showError) {

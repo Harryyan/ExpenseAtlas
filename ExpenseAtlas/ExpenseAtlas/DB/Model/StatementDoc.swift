@@ -62,4 +62,20 @@ extension StatementDoc {
         case .failed: return errorMessage ?? "Failed"
         }
     }
+
+    /// Base directory for storing imported statement files
+    static var statementsDirectory: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("Statements", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: dir.path) {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        return dir
+    }
+
+    /// Full URL to the stored file
+    var fileURL: URL? {
+        guard !localFilePath.isEmpty else { return nil }
+        return Self.statementsDirectory.appendingPathComponent(localFilePath)
+    }
 }

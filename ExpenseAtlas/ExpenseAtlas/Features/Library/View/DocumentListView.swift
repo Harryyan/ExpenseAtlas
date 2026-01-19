@@ -29,12 +29,15 @@ struct DocumentListView: View {
         }
         .navigationTitle(folder?.name ?? "Statements")
         .toolbar {
+            #if os(macOS)
             ToolbarItem(placement: .primaryAction) {
                 Button { showImporter = true } label: {
                     Image(systemName: "square.and.arrow.down")
                 }
             }
+            #endif
         }
+        #if os(macOS)
         .fileImporter(
             isPresented: $showImporter,
             allowedContentTypes: [.pdf, .commaSeparatedText, .plainText],
@@ -42,8 +45,10 @@ struct DocumentListView: View {
         ) { result in
             if case .success(let urls) = result { onImport(urls) }
         }
+        #endif
         .overlay {
             if docs.isEmpty {
+                #if os(macOS)
                 VStack(spacing: 10) {
                     Image(systemName: "tray.and.arrow.down").font(.system(size: 36))
                     Text("Drag & Drop statements here")
@@ -57,13 +62,26 @@ struct DocumentListView: View {
                         .stroke(isDropTarget ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 2)
                 )
                 .padding()
+                #else
+                VStack(spacing: 10) {
+                    Image(systemName: "clock").font(.system(size: 36))
+                    Text("Import Coming Soon")
+                    Text("Share files from other apps").foregroundStyle(.secondary)
+                }
+                .padding(24)
+                .background(.thinMaterial)
+                .cornerRadius(16)
+                .padding()
+                #endif
             }
         }
+        #if os(macOS)
         .dropDestination(for: URL.self) { urls, _ in
             onImport(urls)
             return true
         } isTargeted: { targeted in
             isDropTarget = targeted
         }
+        #endif
     }
 }

@@ -4,19 +4,31 @@ import SwiftData
 struct StatementRepositoryImpl: StatementRepository {
     
     func importDocs(_ urls: [URL], into folder: Folder?, context: ModelContext) throws {
+        let fm = FileManager.default
+
         for url in urls {
+            // Start security-scoped access for files from file picker
+            let hasAccess = url.startAccessingSecurityScopedResource()
+            defer { if hasAccess { url.stopAccessingSecurityScopedResource() } }
+
             let originalFileName = url.lastPathComponent
             let title = url.deletingPathExtension().lastPathComponent
             let type = FileType(ext: url.pathExtension)
 
-            let placeholderLocalPath = "statements/\(UUID().uuidString).\(url.pathExtension)"
+            // Generate unique filename and copy to app container
+            let storedFileName = "\(UUID().uuidString).\(url.pathExtension)"
+            let destinationURL = StatementDoc.statementsDirectory.appendingPathComponent(storedFileName)
+
+            try fm.copyItem(at: url, to: destinationURL)
+
+            let fileSize = (try? fm.attributesOfItem(atPath: destinationURL.path)[.size] as? Int64) ?? 0
 
             let doc = StatementDoc(
                 title: title,
                 originalFileName: originalFileName,
                 fileType: type,
-                localFilePath: placeholderLocalPath,
-                fileSize: 0,
+                localFilePath: storedFileName,
+                fileSize: fileSize,
                 folder: folder
             )
             context.insert(doc)
