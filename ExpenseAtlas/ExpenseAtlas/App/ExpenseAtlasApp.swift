@@ -10,8 +10,13 @@ struct ExpenseAtlasApp: App {
             Transaction.self
         ])
         
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
+        let storeURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("ExpenseAtlas.store")
+        let modelConfiguration = if let storeURL {
+            ModelConfiguration(schema: schema, url: storeURL)
+        } else {
+            ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        }
+        
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
@@ -20,7 +25,7 @@ struct ExpenseAtlasApp: App {
     }()
     
     @State private var environment = AppEnvironment.live()
-
+    
     var body: some Scene {
         WindowGroup {
             RootView(vm: environment.library.makeRootViewModel())
