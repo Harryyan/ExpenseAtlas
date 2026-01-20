@@ -10,16 +10,26 @@ final class AppStore {
         context.insert(folder)
         try? context.save()
     }
-
+    
+    func deleteFolder(_ folder: Folder, context: ModelContext) {
+        context.delete(folder)
+        try? context.save()
+    }
+    
+    func deleteDoc(_ doc: StatementDoc, context: ModelContext) {
+        context.delete(doc) // cascade transactions
+        try? context.save()
+    }
+    
     func importDocs(_ urls: [URL], into folder: Folder?, context: ModelContext) {
         for url in urls {
             let fileName = url.lastPathComponent
             let title = url.deletingPathExtension().lastPathComponent
             let type = FileType(ext: url.pathExtension)
-
+            
             // TODO: 生产里复制到 App 容器后再写 relative path
             let placeholderLocalPath = "statements/\(UUID().uuidString).\(url.pathExtension)"
-
+            
             let doc = StatementDoc(
                 title: title,
                 originalFileName: fileName,
@@ -32,23 +42,13 @@ final class AppStore {
         }
         try? context.save()
     }
-
-    func deleteFolder(_ folder: Folder, context: ModelContext) {
-        context.delete(folder) // nullify docs.folder
-        try? context.save()
-    }
-
-    func deleteDoc(_ doc: StatementDoc, context: ModelContext) {
-        context.delete(doc) // cascade transactions
-        try? context.save()
-    }
-
+    
     func generateInsights(for doc: StatementDoc, context: ModelContext) {
         doc.status = .processing
         try? context.save()
-
+        
         doc.transactions.removeAll()
-
+        
         let t1 = Transaction(
             date: .now,
             amount: 25.40,
@@ -59,7 +59,7 @@ final class AppStore {
             category: .dining,
             document: doc
         )
-
+        
         let t2 = Transaction(
             date: .now.addingTimeInterval(-86400),
             amount: 79.00,
@@ -70,7 +70,7 @@ final class AppStore {
             category: .shopping,
             document: doc
         )
-
+        
         doc.transactions.append(contentsOf: [t1, t2])
         doc.status = .done
         doc.lastAnalyzedAt = .now

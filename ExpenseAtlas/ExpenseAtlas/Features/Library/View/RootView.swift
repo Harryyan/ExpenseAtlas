@@ -28,7 +28,7 @@ struct RootView: View {
                     vm.createFolder(with: name, context: context)
                 },
                 onDeleteFolder: { folder in
-                    //                               vm.deleteFolder(folder, context: context)
+                    vm.deleteFolder(folder, context: context)
                 }
             )
         } content: {
@@ -40,7 +40,7 @@ struct RootView: View {
                     vm.importDocs(urls, into: selectedFolder, context: context)
                 },
                 onDeleteDoc: { doc in
-                    //                                vm.deleteDoc(doc, context: context)
+                    // vm.deleteDoc(doc, context: context)
                 }
             )
             .onChange(of: vm.selectedFolderID) { _, _ in

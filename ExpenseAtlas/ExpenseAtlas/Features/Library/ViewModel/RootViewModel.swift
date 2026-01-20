@@ -67,10 +67,18 @@ final class RootViewModel {
         docs.first { $0.id == selectedDocID }
     }
     
-    // MARK: - Actions(TBC)
+    // MARK: - Actions
     func createFolder(with name: String, context: ModelContext) {
         do {
             try folderUseCase.create(name: name, context: context)
+        } catch {
+            print(error)
+        }
+    }
+    
+    func deleteFolder(_ folder: Folder, context: ModelContext) {
+        do {
+            try folderUseCase.delete(folder, context: context)
         } catch {
             print(error)
         }
