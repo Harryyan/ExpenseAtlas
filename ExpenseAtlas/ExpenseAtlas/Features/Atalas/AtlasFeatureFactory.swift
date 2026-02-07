@@ -6,7 +6,7 @@ final class AtlasFeatureFactory {
     init(core: AppCore) { self.core = core }
     
     @MainActor
-    func makeAtlasViewModel() -> AtlasViewModel {
-        AtlasViewModel()
+    func makeAtlasViewModel(doc: StatementDoc) -> AtlasViewModel {
+        AtlasViewModel(doc: doc)
     }
 }

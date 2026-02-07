@@ -13,12 +13,14 @@ final class DetailViewModel {
         self.statementUC = statementUC
     }
 
-    func generate(doc: StatementDoc, context: ModelContext) async {
-        do {
-            try await statementUC.generateInsights(for: doc, context: context)
-        } catch {
-            errorMessage = String(describing: error)
-            showError = true
+    func generate(doc: StatementDoc, context: ModelContext) {
+        Task {
+            do {
+                try await statementUC.generateInsights(for: doc, context: context)
+            } catch {
+                errorMessage = String(describing: error)
+                showError = true
+            }
         }
     }
 }

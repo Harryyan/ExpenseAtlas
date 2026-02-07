@@ -1,18 +1,6 @@
 import Foundation
 import SwiftData
 
-enum Direction: String, Codable, CaseIterable { case debit, credit }
-
-enum Category: String, Codable, CaseIterable, Identifiable {
-    var id: String { rawValue }
-
-    case groceries, dining, transport, shopping, housing, utilities
-    case subscription, healthcare, entertainment, travel
-    case transfer, income, fee, tax, unknown
-
-    var displayName: String { rawValue.capitalized }
-}
-
 @Model
 final class Transaction {
     @Attribute(.unique) var id: UUID
