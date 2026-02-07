@@ -18,6 +18,7 @@ struct FolderSidebarView: View {
             ForEach(folders) { folder in
                 Label(folder.name, systemImage: "folder")
                     .tag(folder.id)
+                    .lineLimit(3)
                     .contextMenu {
                         Button(role: .destructive) {
                             onDeleteFolder(folder)
