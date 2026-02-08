@@ -7,7 +7,7 @@ struct AtlasView: View {
         List {
             Section("Summary") {
                 Text("Transactions: \(vm.transactionCount)")
-                Text("Total spend: \(vm.totalSpend)")
+                Text("Total spend: \(vm.totalSpend.formatted())")
                 Text("Last analyzed: \(vm.lastAnalyzedAt?.formatted() ?? "N/A")")
                     .opacity(vm.lastAnalyzedAt != nil ? 1 : 0)
             }
@@ -21,7 +21,7 @@ struct AtlasView: View {
                     HStack {
                         Text(item.0.displayName)
                         Spacer()
-                        Text("\(item.1)")
+                        Text("\(item.1.formatted())")
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -31,7 +31,7 @@ struct AtlasView: View {
                 ForEach(vm.transactions) { tx in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(tx.rawDescription)
-                        Text("\(tx.direction.rawValue) \(tx.amount) \(tx.currency) • \(tx.category.displayName)")
+                        Text("\(tx.direction.rawValue) \(tx.amount.formatted()) \(tx.currency) • \(tx.category.displayName)")
                             .foregroundStyle(.secondary)
                             .font(.subheadline)
                     }

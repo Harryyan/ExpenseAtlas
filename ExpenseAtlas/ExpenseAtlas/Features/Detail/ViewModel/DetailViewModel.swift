@@ -40,6 +40,9 @@ final class DetailViewModel {
         categorizationProgress = 0
 
         categorizationTask = Task {
+            // Reset the AI model session before categorization to clear previous conversation history
+            _ = await categorizationUC.resetModelSession()
+
             let transactions = doc.transactions
             guard !transactions.isEmpty else {
                 isCategorizing = false

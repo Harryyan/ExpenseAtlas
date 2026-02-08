@@ -29,10 +29,13 @@ struct PDFStatementProcessor: StatementProcessing {
         case .success(let extractedTransactions):
             // Convert extracted data to Transaction models
             return extractedTransactions.map { extracted in
-                Transaction(
+                // Determine currency from extraction or detect from text
+                let currency = extracted.currency ?? detectCurrency(from: pdfText) ?? "NZD"
+
+                return Transaction(
                     date: parseDate(extracted.date) ?? Date(),
                     amount: Decimal(string: extracted.amount) ?? 0,
-                    currency: extracted.currency ?? "USD",
+                    currency: currency,
                     direction: extracted.type.lowercased().contains("debit") || extracted.amount.hasPrefix("-") ? .debit : .credit,
                     rawDescription: extracted.description,
                     merchant: extractMerchantName(from: extracted.description),
@@ -97,22 +100,77 @@ struct PDFStatementProcessor: StatementProcessing {
     }
 
     private func extractMerchantName(from description: String) -> String? {
-        // Simple heuristic: extract first meaningful word(s)
+        let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // For transfers, return the full description to preserve account details
+        if trimmed.lowercased().contains("transfer from:") ||
+           trimmed.lowercased().contains("transfer to:") ||
+           trimmed.lowercased().contains("transfer from") ||
+           trimmed.lowercased().contains("transfer to") {
+            return trimmed
+        }
+
+        // For regular merchants, extract first few meaningful words
         let cleaned = description
             .replacingOccurrences(of: "DEBIT", with: "", options: .caseInsensitive)
             .replacingOccurrences(of: "CREDIT", with: "", options: .caseInsensitive)
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
+        // Take up to 4 words for merchant name (more generous than before)
         let words = cleaned.components(separatedBy: .whitespaces)
-        let meaningfulWords = words.filter { $0.count > 2 }
+        let meaningfulWords = words.filter { !$0.isEmpty && $0.count > 1 }
 
-        return meaningfulWords.prefix(2).joined(separator: " ")
+        if meaningfulWords.isEmpty {
+            return trimmed
+        }
+
+        return meaningfulWords.prefix(4).joined(separator: " ")
+    }
+
+    private func detectCurrency(from text: String) -> String? {
+        // Common currency patterns in order of specificity
+        let patterns = [
+            "NZD", "NZ\\$", "\\$NZ",  // New Zealand Dollar
+            "AUD", "AU\\$", "\\$AU",  // Australian Dollar
+            "USD", "US\\$", "\\$US",  // US Dollar
+            "EUR", "€",               // Euro
+            "GBP", "£",               // British Pound
+            "CAD", "CA\\$", "\\$CA",  // Canadian Dollar
+            "CNY", "¥", "RMB"         // Chinese Yuan
+        ]
+
+        let currencyMap: [String: String] = [
+            "NZD": "NZD", "NZ$": "NZD", "$NZ": "NZD",
+            "AUD": "AUD", "AU$": "AUD", "$AU": "AUD",
+            "USD": "USD", "US$": "USD", "$US": "USD",
+            "EUR": "EUR", "€": "EUR",
+            "GBP": "GBP", "£": "GBP",
+            "CAD": "CAD", "CA$": "CAD", "$CA": "CAD",
+            "CNY": "CNY", "¥": "CNY", "RMB": "CNY"
+        ]
+
+        // Check first 2000 characters for currency indicators
+        let searchText = String(text.prefix(2000))
+
+        for pattern in patterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: searchText, range: NSRange(searchText.startIndex..., in: searchText)),
+               let range = Range(match.range, in: searchText) {
+                let matched = String(searchText[range])
+                if let currency = currencyMap[matched] ?? currencyMap[matched.uppercased()] {
+                    return currency
+                }
+            }
+        }
+
+        return nil
     }
 
     private func fallbackParse(pdfText: String, doc: StatementDoc) throws -> [Transaction] {
         // Simple fallback: look for lines with amounts
         var transactions: [Transaction] = []
         let lines = pdfText.components(separatedBy: .newlines)
+        let detectedCurrency = detectCurrency(from: pdfText) ?? "NZD"
 
         for line in lines {
             // Look for patterns like: "date description amount"
@@ -128,7 +186,7 @@ struct PDFStatementProcessor: StatementProcessing {
                     let transaction = Transaction(
                         date: parseDate(date) ?? Date(),
                         amount: Decimal(string: amount.replacingOccurrences(of: ",", with: "")) ?? 0,
-                        currency: "USD",
+                        currency: detectedCurrency,
                         direction: amount.hasPrefix("-") ? .debit : .credit,
                         rawDescription: description,
                         merchant: extractMerchantName(from: description),

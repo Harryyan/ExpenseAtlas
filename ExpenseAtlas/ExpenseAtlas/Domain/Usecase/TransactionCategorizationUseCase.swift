@@ -14,6 +14,7 @@ protocol TransactionCategorizationUseCaseProtocol {
     func generateMonthlyInsights(for month: Date, context: ModelContext) async -> Result<MonthlyExpenseAnalysis, TransactionError>
     func checkModelAvailability() -> Bool
     func prewarmModel() async -> Result<Void, TransactionError>
+    func resetModelSession() async -> Result<Void, TransactionError>
 }
 
 struct TransactionCategorizationUseCaseImpl: TransactionCategorizationUseCaseProtocol {
@@ -124,6 +125,10 @@ struct TransactionCategorizationUseCaseImpl: TransactionCategorizationUseCasePro
 
     func prewarmModel() async -> Result<Void, TransactionError> {
         await aiRepository.prewarmModel()
+    }
+
+    func resetModelSession() async -> Result<Void, TransactionError> {
+        await aiRepository.resetSession()
     }
 }
 

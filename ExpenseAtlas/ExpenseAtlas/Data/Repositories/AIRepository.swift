@@ -93,6 +93,11 @@ final class AIRepository: AIRepositoryProtocol {
         }
     }
 
+    func resetSession() async -> Result<Void, TransactionError> {
+        foundationService.resetSession()
+        return .success(())
+    }
+
     private func mapError(_ error: FoundationModelsError) -> TransactionError {
         switch error {
         case .contextWindowExceeded:

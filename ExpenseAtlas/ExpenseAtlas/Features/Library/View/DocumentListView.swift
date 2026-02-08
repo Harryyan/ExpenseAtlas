@@ -17,12 +17,11 @@ struct DocumentListView: View {
         let documents = vm.filterDocuments(allDocs)
 
         List(selection: $selection) {
-            ForEach(documents) { doc in
+            ForEach(documents, id: \.id) { doc in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(doc.displayName).font(.headline)
                     Text(doc.subtitle).font(.subheadline).foregroundStyle(.secondary)
                 }
-                .tag(doc.id)
                 .contextMenu {
                     Button(role: .destructive) {
                         vm.deleteDocument(doc, context: context)

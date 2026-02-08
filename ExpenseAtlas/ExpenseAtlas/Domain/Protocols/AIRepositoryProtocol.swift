@@ -14,4 +14,5 @@ protocol AIRepositoryProtocol {
     func extractTransactions(from text: String) async -> Result<[ExtractedTransaction], TransactionError>
     func checkAvailability() -> Bool
     func prewarmModel() async -> Result<Void, TransactionError>
+    func resetSession() async -> Result<Void, TransactionError>
 }
