@@ -16,6 +16,13 @@ final class DetailFeatureFactory {
             processor: core.statementProcessor
         )
 
-        return DetailViewModel(statementUC: statementUC)
+        let categorizationUC: TransactionCategorizationUseCaseProtocol = TransactionCategorizationUseCaseImpl(
+            aiRepository: core.aiRepository
+        )
+
+        return DetailViewModel(
+            statementUC: statementUC,
+            categorizationUC: categorizationUC
+        )
     }
 }

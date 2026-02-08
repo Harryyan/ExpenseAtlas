@@ -12,3 +12,9 @@
 	<array/>
 </dict>
 </plist>
+<!-- Note: To enable Apple Intelligence/Foundation Models on device:
+     Add the following in Xcode's Signing & Capabilities:
+     <key>com.apple.developer.foundation-models</key>
+     <true/>
+     This requires iOS 18.1+ or macOS 15.1+ and proper provisioning profile.
+-->
