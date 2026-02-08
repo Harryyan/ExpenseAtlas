@@ -1,33 +1,38 @@
 import SwiftUI
+import SwiftData
 import UniformTypeIdentifiers
 
 struct DocumentListView: View {
-    let folder: Folder?
-    let docs: [StatementDoc]
+    @Environment(\.modelContext) private var context
+    @State var vm: DocumentListViewModel
     @Binding var selection: UUID?
-    
+
     let onImport: ([URL]) -> Void
-    let onDeleteDoc: (StatementDoc) -> Void
-    
+
+    @Query private var allDocs: [StatementDoc]
     @State private var showImporter = false
     @State private var isDropTarget = false
-    
+
     var body: some View {
+        let documents = vm.filterDocuments(allDocs)
+
         List(selection: $selection) {
-            ForEach(docs) { doc in
+            ForEach(documents) { doc in
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(doc.title).font(.headline)
+                    Text(doc.displayName).font(.headline)
                     Text(doc.subtitle).font(.subheadline).foregroundStyle(.secondary)
                 }
                 .tag(doc.id)
                 .contextMenu {
-                    Button(role: .destructive) { onDeleteDoc(doc) } label: {
+                    Button(role: .destructive) {
+                        vm.deleteDocument(doc, context: context)
+                    } label: {
                         Label("Delete", systemImage: "trash")
                     }
                 }
             }
         }
-        .navigationTitle(folder?.name ?? "Statements")
+        .navigationTitle(vm.navigationTitle)
         .toolbar {
             #if os(macOS)
             ToolbarItem(placement: .primaryAction) {
@@ -46,8 +51,13 @@ struct DocumentListView: View {
             if case .success(let urls) = result { onImport(urls) }
         }
         #endif
+        .alert("Error", isPresented: $vm.showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(vm.errorMessage ?? "Unknown error")
+        }
         .overlay {
-            if docs.isEmpty {
+            if documents.isEmpty {
                 #if os(macOS)
                 VStack(spacing: 10) {
                     Image(systemName: "tray.and.arrow.down").font(.system(size: 36))

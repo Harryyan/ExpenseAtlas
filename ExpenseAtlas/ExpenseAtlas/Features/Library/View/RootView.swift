@@ -17,10 +17,17 @@ struct RootView: View {
         let selectedFolder = vm.selectedFolder(from: folders)
         let docs = vm.docs(with: vm.selectedFolderID, allDocs: allDocs)
         let selectedDoc = vm.selectedDoc(from: allDocs)
-        
+
+        let folderCounts = Dictionary(uniqueKeysWithValues: folders.map { folder in
+            (folder.id, vm.documentCount(for: folder, allDocs: allDocs))
+        })
+        let allFilesCount = vm.documentCount(for: nil, allDocs: allDocs)
+
         NavigationSplitView(columnVisibility: $vm.columnVisibility, preferredCompactColumn: .constant(.content)) {
             FolderSidebarView(
                 folders: displayFolders,
+                folderCounts: folderCounts,
+                allFilesCount: allFilesCount,
                 selection: $vm.selectedFolderID,
                 sortMode: folderSortMode,
                 onChangeSortMode: { folderSortMode = $0 },
@@ -33,16 +40,13 @@ struct RootView: View {
             )
         } content: {
             DocumentListView(
-                folder: selectedFolder,
-                docs: docs,
+                vm: env.library.makeDocumentListViewModel(folder: selectedFolder),
                 selection: $vm.selectedDocID,
                 onImport: { urls in
                     vm.importDocs(urls, into: selectedFolder, context: context)
-                },
-                onDeleteDoc: { doc in
-                    // vm.deleteDoc(doc, context: context)
                 }
             )
+            .id(vm.selectedFolderID)
             .onChange(of: vm.selectedFolderID) { _, _ in
                 vm.selectedDocID = nil
             }

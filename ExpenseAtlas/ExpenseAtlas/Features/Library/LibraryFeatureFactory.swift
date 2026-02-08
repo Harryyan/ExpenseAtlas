@@ -12,4 +12,16 @@ final class LibraryFeatureFactory {
                                                              folderRepo: FolderRepositoryImpl(),
                                                              processor: core.statementProcessor))
     }
+
+    @MainActor
+    func makeDocumentListViewModel(folder: Folder?) -> DocumentListViewModel {
+        DocumentListViewModel(
+            folder: folder,
+            statementUseCase: StatementUseCaseImpl(
+                statementRepo: StatementRepositoryImpl(),
+                folderRepo: FolderRepositoryImpl(),
+                processor: core.statementProcessor
+            )
+        )
+    }
 }

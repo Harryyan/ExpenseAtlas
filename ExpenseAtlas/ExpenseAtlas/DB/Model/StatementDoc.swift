@@ -54,6 +54,10 @@ final class StatementDoc {
 }
 
 extension StatementDoc {
+    var displayName: String {
+        originalFileName
+    }
+
     var subtitle: String {
         switch status {
         case .idle: return "Not analyzed"

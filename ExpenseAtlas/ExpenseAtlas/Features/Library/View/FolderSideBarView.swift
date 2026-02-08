@@ -2,6 +2,8 @@ import SwiftUI
 
 struct FolderSidebarView: View {
     let folders: [Folder]
+    let folderCounts: [UUID: Int]
+    let allFilesCount: Int
     @Binding var selection: UUID?
 
     let sortMode: RootViewModel.FolderSortMode
@@ -15,8 +17,24 @@ struct FolderSidebarView: View {
 
     var body: some View {
         List(selection: $selection) {
-            ForEach(folders) { folder in
-                Label(folder.name, systemImage: "folder")
+            Section {
+                HStack {
+                    Label("All Files", systemImage: "folder.fill")
+                    Spacer()
+                    Text("\(allFilesCount)")
+                        .foregroundStyle(.secondary)
+                }
+                .tag(RootViewModel.allFilesID)
+            }
+
+            Section {
+                ForEach(folders) { folder in
+                    HStack {
+                        Label(folder.name, systemImage: "folder")
+                        Spacer()
+                        Text("\(folderCounts[folder.id] ?? 0)")
+                            .foregroundStyle(.secondary)
+                    }
                     .tag(folder.id)
                     .lineLimit(3)
                     .contextMenu {
@@ -26,6 +44,7 @@ struct FolderSidebarView: View {
                             Label("Delete", systemImage: "trash")
                         }
                     }
+                }
             }
         }
         .navigationTitle("Folders")
