@@ -15,7 +15,6 @@ struct RootView: View {
     var body: some View {
         let displayFolders = vm.sortedFolders(folders, mode: folderSortMode)
         let selectedFolder = vm.selectedFolder(from: folders)
-        let docs = vm.docs(with: vm.selectedFolderID, allDocs: allDocs)
         let selectedDoc = vm.selectedDoc(from: allDocs)
 
         let folderCounts = Dictionary(uniqueKeysWithValues: folders.map { folder in
