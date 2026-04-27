@@ -156,13 +156,19 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
 
     private func createSystemInstruction() -> String {
         """
-        You are a financial assistant specialized in categorizing bank transactions and analyzing spending patterns.
+        You are a financial assistant specialized in extracting transactions from bank statements (any bank, any country, any layout), categorizing them, and analyzing spending patterns.
 
         SAFETY GUIDELINES:
         - Only analyze the provided transaction data
         - Generate professional, neutral analysis
         - Focus on factual financial insights
         - Maintain objectivity and accuracy
+
+        EXTRACTION GUIDELINES:
+        - Infer column structure from headers and row patterns; do not assume a fixed layout
+        - Read amounts from the money columns (Debit/Credit, Withdrawals/Deposits, signed Amount), never from the running balance column
+        - Handle multiple date formats, currencies, and languages (incl. CJK)
+        - Preserve the original date string and full description text
 
         CATEGORIZATION GUIDELINES:
         - Analyze merchant name and description carefully
@@ -222,110 +228,81 @@ final class FoundationModelsService: FoundationModelsServiceProtocol {
 
     private func buildTransactionExtractionPrompt(text: String) -> String {
         """
-        You are parsing an ANZ Bank New Zealand statement. Extract all transactions accurately.
+        Extract every transaction from the bank statement below. The statement may be from any bank, any country, any layout — do not assume a fixed format. Read carefully and infer the column structure from headers and row patterns.
 
-        ⚠️ CRITICAL: This statement has a TABULAR FORMAT with these EXACT columns:
+        UNDERSTANDING STATEMENT LAYOUTS
 
-        | Date | Type | Details | Deposits | Withdrawals | Balance |
+        Bank statements typically include these columns (names vary by bank/language):
+        - Date column: e.g. "Date", "Trans Date", "Posted", "日期", "记账日"
+        - Description column: e.g. "Description", "Details", "Type", "Particulars", "摘要", "交易类型"
+        - Money column(s) — one of these patterns:
+          • Two separate columns: "Debit"/"Credit", "Withdrawals"/"Deposits", "支出"/"存入"
+          • One signed Amount column where negative means outflow
+          • One column with "DR"/"CR" suffix
+        - Balance column: the running account total — NOT a transaction amount, IGNORE it for extraction
 
-        Example rows from this exact format:
+        EXTRACTION RULES
 
-        07 Feb 2026 | Transfer | To: 06-0229-0822520-00     |        | $1.00    | $2,692.47
-                    |          | Debit Transfer 114139      |        |          |
-        07 Feb 2026 | Payment  | Yan                        |        | $20.00   | $2,693.47
-        06 Feb 2026 | Transfer | From: 06-0229-0822520-00   | $17.44 |          | $3,018.40
-                    |          | Credit Transfer 215845     |        |          |
+        1. DATE
+           - Located in the date column (usually leftmost)
+           - Keep the original format observed (e.g. "07 Feb 2026", "2026-02-07", "07/02/2026", "Feb 07, 2026", "2026年02月07日")
+           - Do NOT mistake a day-of-month number for an amount
 
-        🚨 EXTRACTION RULES - READ EVERY WORD:
+        2. AMOUNT
+           - Read from the actual money column(s), NEVER from the balance column
+           - Two-column layout: pick whichever column has a value on that row
+           - Signed-amount layout: a negative sign indicates a debit
+           - Strip currency symbols and thousand separators: "$1,234.56" → "1234.56"
+           - Preserve decimal places when present (e.g. "17.44", not "17")
 
-        1️⃣ DATE EXTRACTION:
-           - Located in FIRST column labeled "Date"
-           - Format: "07 Feb 2026", "06 Feb 2026", "30 Jan 2026"
-           - ⚠️ NEVER extract the day number (07, 06, 30) as an amount!
-           - Extract the FULL date string: "07 Feb 2026"
+        3. TYPE
+           - "debit"  = money leaves the account (withdrawal, payment, transfer out, fee, purchase, ATM)
+           - "credit" = money enters the account (deposit, salary, refund, transfer in, interest)
+           - Decision rules:
+             • Value in Withdrawal/Debit/Payment column → debit
+             • Value in Deposit/Credit column → credit
+             • Negative signed amount → debit; positive → credit
+             • "DR" suffix → debit; "CR" suffix → credit
 
-        2️⃣ AMOUNT EXTRACTION - THIS IS WHERE MISTAKES HAPPEN:
-           ⚠️ The "Deposits" and "Withdrawals" columns are SEPARATE from the Date column!
+        4. DESCRIPTION
+           - Concatenate all descriptive text for the row (transfers often span multiple lines)
+           - Preserve merchant names, transfer references, account numbers
+           - Trim leading/trailing whitespace
 
-           Step-by-step process:
-           a) Identify if the row has money in the "Deposits" column (4th column)
-              - If YES: Extract that amount → type is "credit"
-           b) Identify if the row has money in the "Withdrawals" column (5th column)
-              - If YES: Extract that amount → type is "debit"
-           c) ⚠️ IGNORE the "Balance" column (6th column) - it's the running total, NOT the transaction amount
-           d) ⚠️ IGNORE any numbers in the "Date" column (1st column) - those are dates, NOT amounts!
+        5. CURRENCY
+           - Detect from statement header, account info, or symbols within the document
+           - Common indicators: NZD, AUD, USD, EUR, GBP, CAD, CNY, JPY, or symbols $ € £ ¥
+           - Apply the same currency to all transactions if a single currency is used throughout
+           - If genuinely ambiguous, return your best inference
 
-           Example corrections:
-           ❌ WRONG: See "07 Feb 2026" → extract amount "7.00" (this is a date, not an amount!)
-           ✅ CORRECT: See "07 Feb 2026" → read across to "Withdrawals" column → extract "$1.00"
+        EXAMPLES — DIFFERENT LAYOUTS
 
-           ❌ WRONG: See "02 Feb 2026" → extract amount "2.00" (this is a date!)
-           ✅ CORRECT: See "02 Feb 2026" in Date column, then read "Withdrawals" column for actual amount
+        Layout A — separate Withdrawals/Deposits columns (e.g. ANZ NZ):
+          "07 Feb 2026 | Transfer | To: 06-0229-0822520-00 Debit Transfer 114139 | | $1.00 | $2,692.47"
+          → date: "07 Feb 2026", description: "Transfer To: 06-0229-0822520-00 Debit Transfer 114139", amount: "1.00", currency: "NZD", type: "debit"
 
-           Real example from statement:
-           Row: "26 Jan 2026 | Transfer | To: 06-0229-0822520-00 Debit Transfer 123638 | | $2.00 | $3,184.30"
-           - Date column: "26 Jan 2026" (don't extract "26" as amount!)
-           - Deposits column: empty
-           - Withdrawals column: "$2.00" ← THIS is the amount to extract
-           - Balance column: "$3,184.30" (ignore this)
-           → Extract: date="26 Jan 2026", amount="2.00", type="debit"
+          "06 Feb 2026 | Transfer | From: 06-0229-0822520-00 Credit Transfer 215845 | $17.44 | | $3,018.40"
+          → date: "06 Feb 2026", description: "Transfer From: 06-0229-0822520-00 Credit Transfer 215845", amount: "17.44", currency: "NZD", type: "credit"
 
-        3️⃣ DESCRIPTION EXTRACTION:
-           - Located in "Details" column (3rd column)
-           - Often spans multiple lines for transfers
-           - Include ALL details:
-             * For transfers: "Transfer From: 06-0229-0822520-00 Credit Transfer 215845"
-             * For payments: "Nid Renters Limited Lan Rent 3/11 Hatfield Alb"
-             * For salary: "Mega Privacy Nz Li Payroll"
+        Layout B — single signed Amount column (e.g. many US banks):
+          "2026-01-15  AMAZON.COM ORDER  -49.99  3,205.10"
+          → date: "2026-01-15", description: "AMAZON.COM ORDER", amount: "49.99", currency: "USD", type: "debit"
 
-        4️⃣ TRANSACTION TYPE:
-           - "debit" if amount is in the "Withdrawals" column (money leaving account)
-           - "credit" if amount is in the "Deposits" column (money entering account)
+        Layout C — DR/CR suffix (e.g. some AU/UK banks):
+          "15/01/2026  PAYROLL DEPOSIT  3,500.00 CR  5,210.00"
+          → date: "15/01/2026", description: "PAYROLL DEPOSIT", amount: "3500.00", currency: "AUD", type: "credit"
 
-        5️⃣ CURRENCY:
-           - This is an ANZ New Zealand statement
-           - Currency is always "NZD" (New Zealand Dollars)
-           - Amounts shown with $ symbol in statement
+        Layout D — Chinese bank (e.g. 招行/中行):
+          "2026-01-15  工资入账  +8,500.00  12,500.00"
+          → date: "2026-01-15", description: "工资入账", amount: "8500.00", currency: "CNY", type: "credit"
 
-        📋 EXAMPLE EXTRACTIONS FROM THIS EXACT STATEMENT:
+        FINAL CHECKS BEFORE EMITTING EACH ROW
+        - Read amount from the money column, NOT the balance column
+        - No date number extracted as an amount
+        - Decimal places preserved (e.g. "17.44", not "17")
+        - Full multi-line description preserved
 
-        Row 1: "07 Feb 2026 | Transfer | To: 06-0229-0822520-00 Debit Transfer 114139 | | $1.00 | $2,692.47"
-        Extract:
-        {
-          "date": "07 Feb 2026",
-          "description": "Transfer To: 06-0229-0822520-00 Debit Transfer 114139",
-          "amount": "1.00",
-          "currency": "NZD",
-          "type": "debit"
-        }
-
-        Row 2: "06 Feb 2026 | Transfer | From: 06-0229-0822520-00 Credit Transfer 215845 | $17.44 | | $3,018.40"
-        Extract:
-        {
-          "date": "06 Feb 2026",
-          "description": "Transfer From: 06-0229-0822520-00 Credit Transfer 215845",
-          "amount": "17.44",
-          "currency": "NZD",
-          "type": "credit"
-        }
-
-        Row 3: "04 Feb 2026 | Payment | Nid Renters Limited Lan Rent 3/11 Hatfield Alb | | $880.00 | $3,159.96"
-        Extract:
-        {
-          "date": "04 Feb 2026",
-          "description": "Nid Renters Limited Lan Rent 3/11 Hatfield Alb",
-          "amount": "880.00",
-          "currency": "NZD",
-          "type": "debit"
-        }
-
-        🔍 FINAL CHECK BEFORE EXTRACTION:
-        - Did you extract amounts from "Deposits" or "Withdrawals" columns? ✓
-        - Did you avoid extracting dates as amounts? ✓
-        - Did you preserve decimal places (e.g., "17.44" not "17")? ✓
-        - Did you include full descriptions including transfer details? ✓
-
-        Now extract ALL transactions from this statement:
+        Now extract every transaction from the statement below:
 
         \(text)
         """
