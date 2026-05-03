@@ -9,14 +9,26 @@ struct PDFStatementProcessor: StatementProcessing {
         self.aiRepository = aiRepository
     }
 
+    private struct ANZParsedTransaction {
+        let date: Date
+        let amount: Decimal
+        let balance: Decimal?
+        let direction: Direction
+        let description: String
+    }
+
     func generateTransactions(for doc: StatementDoc) async throws -> [Transaction] {
-        // Extract text from PDF
         guard let fileURL = doc.fileURL else {
             throw ProcessingError.invalidPDFFormat
         }
 
         guard let pdfText = extractTextFromPDF(at: fileURL) else {
             throw ProcessingError.failedToExtractText
+        }
+
+        let deterministicTransactions = parseANZTransactions(pdfText: pdfText, doc: doc)
+        if !deterministicTransactions.isEmpty {
+            return sortTransactions(deterministicTransactions)
         }
 
         // Truncate if too long (Foundation Models has token limits)
@@ -28,7 +40,7 @@ struct PDFStatementProcessor: StatementProcessing {
         switch result {
         case .success(let extractedTransactions):
             // Convert extracted data to Transaction models
-            return extractedTransactions.map { extracted in
+            let transactions = extractedTransactions.map { extracted in
                 // Determine currency from extraction or detect from text
                 let currency = extracted.currency ?? detectCurrency(from: pdfText) ?? "NZD"
 
@@ -43,11 +55,168 @@ struct PDFStatementProcessor: StatementProcessing {
                     document: doc
                 )
             }
+            return sortTransactions(transactions)
         case .failure(let error):
             // Fallback to demo data if AI extraction fails
             print("AI extraction failed: \(error), using fallback parser")
-            return try fallbackParse(pdfText: pdfText, doc: doc)
+            return sortTransactions(try fallbackParse(pdfText: pdfText, doc: doc))
         }
+    }
+
+    private func sortTransactions(_ transactions: [Transaction]) -> [Transaction] {
+        transactions.enumerated()
+            .sorted { lhs, rhs in
+                if lhs.element.date == rhs.element.date {
+                    return lhs.offset < rhs.offset
+                }
+                return lhs.element.date > rhs.element.date
+            }
+            .map { $0.element }
+    }
+
+    private func parseANZTransactions(pdfText: String, doc: StatementDoc) -> [Transaction] {
+        guard isANZStatement(pdfText) else { return [] }
+
+        let detectedCurrency = detectCurrency(from: pdfText) ?? "NZD"
+        let lines = pdfText.components(separatedBy: .newlines)
+        var transactions: [Transaction] = []
+        var currentBlock: [String] = []
+
+        for rawLine in lines {
+            let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !line.isEmpty else { continue }
+            guard !isANZNonTransactionLine(line) else { continue }
+
+            if isANZTransactionStart(line) {
+                appendANZTransaction(from: currentBlock, currency: detectedCurrency, doc: doc, to: &transactions)
+                currentBlock = [line]
+            } else if !currentBlock.isEmpty {
+                currentBlock.append(line)
+            }
+        }
+
+        appendANZTransaction(from: currentBlock, currency: detectedCurrency, doc: doc, to: &transactions)
+        return transactions
+    }
+
+    private func isANZStatement(_ text: String) -> Bool {
+        text.contains("ANZ Bank New Zealand") ||
+        text.contains("Date Type Details Deposits Withdrawals Balance") ||
+        text.contains("Transactions between")
+    }
+
+    private func isANZNonTransactionLine(_ line: String) -> Bool {
+        if line == "Date Type Details Deposits Withdrawals Balance" { return true }
+        if line.contains("Transactions between") { return true }
+        if line.contains("Account Balance") { return true }
+        if line.contains("Available Funds") { return true }
+        if line.contains("Copyright") { return true }
+        if line == "Page of" { return true }
+        if line.range(of: #"^\d+\s+\d+$"#, options: .regularExpression) != nil { return true }
+        if line.range(of: #"^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+\d{1,2}:\d{2}\s+NZT$"#, options: .regularExpression) != nil { return true }
+        return false
+    }
+
+    private func isANZTransactionStart(_ line: String) -> Bool {
+        line.range(of: #"^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+(?!\d{1,2}:\d{2}\s+NZT\b).+"#, options: .regularExpression) != nil
+    }
+
+    private func appendANZTransaction(
+        from block: [String],
+        currency: String,
+        doc: StatementDoc,
+        to transactions: inout [Transaction]
+    ) {
+        guard let parsed = parseANZBlock(block) else { return }
+
+        transactions.append(
+            Transaction(
+                date: parsed.date,
+                amount: parsed.amount,
+                currency: currency,
+                direction: parsed.direction,
+                rawDescription: parsed.description,
+                merchant: extractMerchantName(from: parsed.description),
+                category: .unknown,
+                balance: parsed.balance,
+                sourceLine: block.joined(separator: " "),
+                document: doc
+            )
+        )
+    }
+
+    private func parseANZBlock(_ block: [String]) -> ANZParsedTransaction? {
+        guard let firstLine = block.first else { return nil }
+        guard let dateRange = firstLine.range(of: #"^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}"#, options: .regularExpression) else {
+            return nil
+        }
+
+        let dateString = String(firstLine[dateRange])
+        guard let date = parseDate(dateString) else { return nil }
+
+        let firstLineRemainder = String(firstLine[dateRange.upperBound...])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let blockText = ([firstLineRemainder] + block.dropFirst()).joined(separator: " ")
+        let moneyValues = extractMoneyValues(from: blockText)
+        guard moneyValues.count >= 2 else { return nil }
+
+        let direction = inferANZDirection(from: descriptionCandidate(from: blockText))
+        let transactionAmount = moneyValues[moneyValues.count - 2]
+        let balance = moneyValues.last
+        let description = removeMoneyValues(from: blockText)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !description.isEmpty else { return nil }
+
+        return ANZParsedTransaction(
+            date: date,
+            amount: transactionAmount,
+            balance: balance,
+            direction: direction,
+            description: description
+        )
+    }
+
+    private func descriptionCandidate(from blockText: String) -> String {
+        removeMoneyValues(from: blockText)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func extractMoneyValues(from text: String) -> [Decimal] {
+        let pattern = #"-?\$[0-9,]+\.[0-9]{2}"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+
+        return regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap { match in
+            guard let range = Range(match.range, in: text) else { return nil }
+            return parseMoney(String(text[range]))
+        }
+    }
+
+    private func removeMoneyValues(from text: String) -> String {
+        text.replacingOccurrences(of: #"-?\$[0-9,]+\.[0-9]{2}"#, with: "", options: .regularExpression)
+    }
+
+    private func parseMoney(_ value: String) -> Decimal? {
+        let cleaned = value
+            .replacingOccurrences(of: "$", with: "")
+            .replacingOccurrences(of: ",", with: "")
+        return Decimal(string: cleaned)
+    }
+
+    private func inferANZDirection(from description: String) -> Direction {
+        let normalized = description.lowercased()
+
+        if normalized.contains("transfer from:") ||
+           normalized.contains("credit transfer") ||
+           normalized.contains("direct credit") ||
+           normalized.contains("salary") ||
+           normalized.contains("credit interest paid") {
+            return .credit
+        }
+
+        return .debit
     }
 
     private func extractTextFromPDF(at url: URL) -> String? {

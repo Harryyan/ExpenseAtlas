@@ -28,9 +28,17 @@ struct StatementUseCaseImpl: StatementUseCase {
 
         do {
             let txs = try await processor.generateTransactions(for: doc)
+            let sortedTransactions = txs.enumerated()
+                .sorted { lhs, rhs in
+                    if lhs.element.date == rhs.element.date {
+                        return lhs.offset < rhs.offset
+                    }
+                    return lhs.element.date > rhs.element.date
+                }
+                .map { $0.element }
 
             doc.transactions.removeAll()
-            doc.transactions.append(contentsOf: txs)
+            doc.transactions.append(contentsOf: sortedTransactions)
             doc.transactions.forEach { $0.document = doc }
 
             try statementRepo.updateDocStatus(doc, status: .done, error: nil, context: context)

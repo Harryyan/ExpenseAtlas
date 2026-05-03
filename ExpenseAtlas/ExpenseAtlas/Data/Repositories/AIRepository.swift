@@ -10,16 +10,21 @@ import Foundation
 final class AIRepository: AIRepositoryProtocol {
     private let foundationService: FoundationModelsServiceProtocol
     private let modelAvailability: ModelAvailabilityService
+    private let modelRouter: AIModelRouter
 
-    init(foundationService: FoundationModelsServiceProtocol, modelAvailability: ModelAvailabilityService) {
+    init(
+        foundationService: FoundationModelsServiceProtocol,
+        modelAvailability: ModelAvailabilityService,
+        modelRouter: AIModelRouter = AIModelRouter()
+    ) {
         self.foundationService = foundationService
         self.modelAvailability = modelAvailability
+        self.modelRouter = modelRouter
     }
 
     func categorizeTransaction(merchant: String, description: String, amount: Decimal) async -> Result<TransactionCategorization, TransactionError> {
-        guard modelAvailability.isAvailable else {
-            let reason = modelAvailability.getUnavailabilityReason() ?? "Model unavailable"
-            return .failure(.modelUnavailable(reason: reason))
+        if case .failure(let error) = resolveFoundationModelsRoute() {
+            return .failure(error)
         }
 
         do {
@@ -41,9 +46,8 @@ final class AIRepository: AIRepositoryProtocol {
     }
 
     func generateMonthlyAnalysis(transactions: [(merchant: String, amount: Decimal, category: String, date: Date)], month: Date) async -> Result<MonthlyExpenseAnalysis, TransactionError> {
-        guard modelAvailability.isAvailable else {
-            let reason = modelAvailability.getUnavailabilityReason() ?? "Model unavailable"
-            return .failure(.modelUnavailable(reason: reason))
+        if case .failure(let error) = resolveFoundationModelsRoute() {
+            return .failure(error)
         }
 
         do {
@@ -60,9 +64,8 @@ final class AIRepository: AIRepositoryProtocol {
     }
 
     func extractTransactions(from text: String) async -> Result<[ExtractedTransaction], TransactionError> {
-        guard modelAvailability.isAvailable else {
-            let reason = modelAvailability.getUnavailabilityReason() ?? "Model unavailable"
-            return .failure(.modelUnavailable(reason: reason))
+        if case .failure(let error) = resolveFoundationModelsRoute() {
+            return .failure(error)
         }
 
         do {
@@ -76,13 +79,15 @@ final class AIRepository: AIRepositoryProtocol {
     }
 
     func checkAvailability() -> Bool {
-        modelAvailability.isAvailable
+        if case .success = resolveFoundationModelsRoute() {
+            return true
+        }
+        return false
     }
 
     func prewarmModel() async -> Result<Void, TransactionError> {
-        guard modelAvailability.isAvailable else {
-            let reason = modelAvailability.getUnavailabilityReason() ?? "Model unavailable"
-            return .failure(.modelUnavailable(reason: reason))
+        if case .failure(let error) = resolveFoundationModelsRoute() {
+            return .failure(error)
         }
 
         do {
@@ -96,6 +101,55 @@ final class AIRepository: AIRepositoryProtocol {
     func resetSession() async -> Result<Void, TransactionError> {
         foundationService.resetSession()
         return .success(())
+    }
+
+    private func resolveFoundationModelsRoute() -> Result<Void, TransactionError> {
+        guard let route = modelRouter.selectedRoute(providerStates: providerStates()) else {
+            return .failure(routeUnavailableError())
+        }
+
+        guard route.provider == .foundationModels else {
+            return .failure(.modelUnavailable(reason: "\(route.provider.displayName) is selected, but its provider is not implemented yet."))
+        }
+
+        return .success(())
+    }
+
+    private func providerStates() -> [AIProviderState] {
+        [
+            AIProviderState(
+                provider: .foundationModels,
+                availability: foundationModelsAvailability()
+            ),
+            AIProviderState(
+                provider: .mlxLocal,
+                availability: .unavailable(reason: "MLX local model support has not been configured yet.")
+            ),
+            AIProviderState(
+                provider: .remoteAPI,
+                availability: .unavailable(reason: "Remote model access is disabled until the user explicitly enables cloud processing.")
+            )
+        ]
+    }
+
+    private func foundationModelsAvailability() -> AIProviderAvailability {
+        if modelAvailability.isAvailable {
+            return .available
+        }
+
+        let reason = modelAvailability.getUnavailabilityReason() ?? "Apple Foundation Models is unavailable."
+        return .unavailable(reason: reason)
+    }
+
+    private func routeUnavailableError() -> TransactionError {
+        let routes = modelRouter.orderedRoutes(providerStates: providerStates())
+        let reasons = routes.compactMap { route -> String? in
+            guard let reason = route.availability.unavailableReason else { return nil }
+            return "\(route.provider.displayName): \(reason)"
+        }
+
+        let message = reasons.isEmpty ? "No AI model provider is available." : reasons.joined(separator: "\n")
+        return .modelUnavailable(reason: message)
     }
 
     private func mapError(_ error: FoundationModelsError) -> TransactionError {

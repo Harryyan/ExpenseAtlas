@@ -16,6 +16,7 @@ final class DetailViewModel {
     var categorizationTask: Task<Void, Never>?
 
     var shouldSwitchToTransactions: Bool = false
+    var shouldSwitchToReport: Bool = false
 
     init(statementUC: StatementUseCase, categorizationUC: TransactionCategorizationUseCaseProtocol) {
         self.statementUC = statementUC
@@ -63,7 +64,7 @@ final class DetailViewModel {
 
                 isCategorizing = false
                 categorizationProgress = 1.0
-                shouldSwitchToTransactions = true
+                shouldSwitchToReport = true
             } catch is CancellationError {
                 isCategorizing = false
             } catch {

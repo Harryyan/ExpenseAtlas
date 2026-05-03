@@ -4,17 +4,30 @@ struct TransactionsListView: View {
     let transactions: [Transaction]
 
     var body: some View {
-        if transactions.isEmpty {
+        let sortedTransactions = sorted(transactions)
+
+        if sortedTransactions.isEmpty {
             ContentUnavailableView(
                 "No Transactions",
                 systemImage: "tray",
                 description: Text("Click 'Generate' to extract transactions from this statement")
             )
         } else {
-            List(transactions) { tx in
+            List(sortedTransactions) { tx in
                 TransactionRow(transaction: tx)
             }
         }
+    }
+
+    private func sorted(_ transactions: [Transaction]) -> [Transaction] {
+        transactions.enumerated()
+            .sorted { lhs, rhs in
+                if lhs.element.date == rhs.element.date {
+                    return lhs.offset < rhs.offset
+                }
+                return lhs.element.date > rhs.element.date
+            }
+            .map { $0.element }
     }
 }
 

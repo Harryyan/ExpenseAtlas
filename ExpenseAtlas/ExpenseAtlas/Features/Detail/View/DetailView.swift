@@ -12,6 +12,7 @@ struct DetailView: View {
     private enum DetailTab: String {
         case original
         case transactions
+        case report
     }
 
     var body: some View {
@@ -28,11 +29,21 @@ struct DetailView: View {
                     TransactionsListView(transactions: doc.transactions)
                         .tabItem { Label("Transactions", systemImage: "list.bullet.rectangle") }
                         .tag(DetailTab.transactions)
+
+                    AtlasView(vm: env.atlas.makeAtlasViewModel(doc: doc))
+                        .tabItem { Label("Report", systemImage: "chart.pie") }
+                        .tag(DetailTab.report)
                 }
                 .onChange(of: vm.shouldSwitchToTransactions) { _, shouldSwitch in
                     if shouldSwitch {
                         selectedTab = .transactions
                         vm.shouldSwitchToTransactions = false
+                    }
+                }
+                .onChange(of: vm.shouldSwitchToReport) { _, shouldSwitch in
+                    if shouldSwitch {
+                        selectedTab = .report
+                        vm.shouldSwitchToReport = false
                     }
                 }
             }
